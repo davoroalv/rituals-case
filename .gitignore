@@ -1,0 +1,7 @@
+*.duckdb
+*.duckdb.wal
+rituals_dbt/target/
+rituals_dbt/dbt_packages/
+rituals_dbt/logs/
+.env
+__pycache__/" > .gitignore
