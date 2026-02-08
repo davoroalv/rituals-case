@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: github_raw
+    description: Raw GitHub data extracted via API
+    schema: raw
+    tables:
+      - name: raw_data_pull_requests
+        description: Raw pull request data from GitHub API
+        columns:
+          - name: payload
+            description: Full JSON payload from GitHub API
+          - name: _extracted_at
+            description: Timestamp when data was extracted
+            
+      - name: raw_data_issues
+        description: Raw issue data from GitHub API
+        columns:
+          - name: payload
+            description: Full JSON payload from GitHub API
+          - name: _extracted_at
+            description: Timestamp when data was extracted
+            
+      - name: raw_data_commits
+        description: Raw commit data from GitHub API
+        columns:
+          - name: payload
+            description: Full JSON payload from GitHub API
+          - name: _extracted_at
+            description: Timestamp when data was extracted
