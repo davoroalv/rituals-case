@@ -1,7 +1,11 @@
+venv/
+env/
 *.duckdb
 *.duckdb.wal
 rituals_dbt/target/
 rituals_dbt/dbt_packages/
 rituals_dbt/logs/
 .env
-__pycache__/" > .gitignore
+__pycache__/
+.DS_Store
+EOF
