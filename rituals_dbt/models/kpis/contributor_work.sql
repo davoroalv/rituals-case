@@ -8,20 +8,17 @@ with commit_base as (
     select
         c.commit_sha,
         c.commit_author_date,
-        c.github_author_id as author_id,
+        c.author_id,
         c.additions,
         c.deletions,
         c.total_changes,
         c.additions - c.deletions as net_changes,
-        case 
-            when c.github_author_id = c.github_committer_id then 'local'
-            else 'web-based' 
-        end as commit_type,
+        commit_type,
         contrib.author_login,
         contrib.user_type
-    from {{ ref('stg_commits') }} c
+    from {{ ref('fact_commits') }} c
     left join {{ ref('dim_contributors') }} contrib
-        on c.github_author_id = contrib.author_id
+        on c.author_id = contrib.author_id
     where coalesce(contrib.user_type, 'User') != 'non-user'
 ),
 
