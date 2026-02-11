@@ -4,7 +4,7 @@ This is work behind a Rituals case study.
 There is an extraction script to get GitHub data into a database (in my case using the DuckDB database).
 I chose the DuckDB database because of the ease of use and setup.
 
-The script pulls the first 100 pages from commits, issues and pull_requests and drops each into its own table in DuckDB.
+The script pulls the first X ( a parameter) pages from commits, issues and pull_requests and drops each into its own table in DuckDB.
 
 There is a rituals_dbt folder which has the SQL/dbt transformation logic.
 

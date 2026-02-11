@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import time
 import requests
@@ -11,8 +12,20 @@ load_dotenv()
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO = 'duckdb/duckdb'
 
-# Configuration - set page limits here
-MAX_PAGES = 2  # ← Change this to control how many pages to pull
+# Configuration - get MAX_PAGES from command line argument or use default
+if len(sys.argv) > 1:
+    try:
+        MAX_PAGES = int(sys.argv[1])
+        if MAX_PAGES < 1:
+            print("Error: Number of pages must be at least 1")
+            sys.exit(1)
+    except ValueError:
+        print(f"Error: Invalid argument '{sys.argv[1]}'. Please provide a number.")
+        print("Usage: python extraction_script.py [pages]")
+        print("Example: python extraction_script.py 5")
+        sys.exit(1)
+else:
+    MAX_PAGES = 10  # Default to 10 pages if no argument provided
 
 HEADERS = {
     "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -59,25 +72,28 @@ def init_db(con):
     # Create tables in the raw schema
     con.execute("""
         CREATE TABLE IF NOT EXISTS raw.raw_data_pull_requests (
-            payload VARCHAR,
+            contents VARCHAR,
             _extracted_at TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS raw.raw_data_commits (
-            payload VARCHAR,
+            contents VARCHAR,
             _extracted_at TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS raw.raw_data_issues (
-            payload VARCHAR,
+            contents VARCHAR,
             _extracted_at TIMESTAMP
         );
     """)
 
 def extract_pull_requests(con):
     print("Extracting pull requests...")
+    print("  Step 1: Fetching PR list...")
     page = 1
     total = 0
     skipped = 0
+    pr_numbers = []
     
+    # Step 1: Get list of all PRs
     while page <= MAX_PAGES:
         try:
             prs = github_get(
@@ -87,7 +103,7 @@ def extract_pull_requests(con):
             
             # Handle None response from failed retries
             if prs is None:
-                print(f"  Page {page}: Failed to fetch, skipping page")
+                print(f"    Page {page}: Failed to fetch, skipping page")
                 page += 1
                 time.sleep(2)
                 continue
@@ -95,51 +111,73 @@ def extract_pull_requests(con):
             if not prs:
                 break
 
+            # Collect PR numbers for detailed fetching
             for pr in prs:
-                try:
-                    con.execute(
-                        "INSERT INTO raw.raw_data_pull_requests VALUES (?, ?)",
-                        [json.dumps(pr), datetime.utcnow()]
-                    )
-                    total += 1
-                except Exception as e:
-                    pr_number = pr.get('number', 'unknown')
-                    print(f"  ⚠ Skipping PR #{pr_number}: {e}")
-                    skipped += 1
-                    continue
+                pr_numbers.append(pr.get('number'))
 
-            status = f"total: {total}"
-            if skipped > 0:
-                status += f", skipped: {skipped}"
-            print(f"  ✓ Page {page}: {len(prs)} PRs ({status})")
+            print(f"    ✓ Page {page}: Found {len(prs)} PRs")
             page += 1
             time.sleep(0.5)
             
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 422:
-                print(f"  Reached pagination limit at page {page}")
+                print(f"    Reached pagination limit at page {page}")
                 break
-            print(f"  ⚠ HTTP error on page {page}: {e}")
+            print(f"    ⚠ HTTP error on page {page}: {e}")
             page += 1
             time.sleep(2)
             continue
         except Exception as e:
-            print(f"  ⚠ Unexpected error on page {page}: {e}")
+            print(f"    ⚠ Unexpected error on page {page}: {e}")
             page += 1
             time.sleep(2)
+            continue
+    
+    # Step 2: Fetch detailed data for each PR
+    print(f"  Step 2: Fetching detailed data for {len(pr_numbers)} PRs...")
+    for i, pr_number in enumerate(pr_numbers, 1):
+        try:
+            # Fetch individual PR with full details (includes additions/deletions)
+            pr_detail = github_get(
+                f"https://api.github.com/repos/{REPO}/pulls/{pr_number}"
+            )
+            
+            if pr_detail is None:
+                print(f"    ⚠ Skipping PR #{pr_number}: Failed to fetch details")
+                skipped += 1
+                continue
+            
+            con.execute(
+                "INSERT INTO raw.raw_data_pull_requests VALUES (?, ?)",
+                [json.dumps(pr_detail), datetime.utcnow()]
+            )
+            total += 1
+            
+            # Progress update every 10 PRs
+            if i % 10 == 0:
+                print(f"    Progress: {i}/{len(pr_numbers)} PRs processed...")
+            
+            time.sleep(0.3)  # Rate limiting
+            
+        except Exception as e:
+            print(f"    ⚠ Skipping PR #{pr_number}: {e}")
+            skipped += 1
             continue
     
     summary = f"Completed: {total} pull requests extracted"
     if skipped > 0:
         summary += f" ({skipped} skipped due to errors)"
-    print(summary)
+    print(f"  {summary}")
 
 def extract_commits(con):
     print("Extracting commits...")
+    print("  Step 1: Fetching commit list...")
     page = 1
     total = 0
     skipped = 0
+    commit_shas = []
     
+    # Step 1: Get list of all commits
     while page <= MAX_PAGES:
         try:
             commits = github_get(
@@ -149,7 +187,7 @@ def extract_commits(con):
             
             # Handle None response from failed retries
             if commits is None:
-                print(f"  Page {page}: Failed to fetch, skipping page")
+                print(f"    Page {page}: Failed to fetch, skipping page")
                 page += 1
                 time.sleep(2)
                 continue
@@ -157,44 +195,63 @@ def extract_commits(con):
             if not commits:
                 break
 
+            # Collect commit SHAs for detailed fetching
             for commit in commits:
-                try:
-                    con.execute(
-                        "INSERT INTO raw.raw_data_commits VALUES (?, ?)",
-                        [json.dumps(commit), datetime.utcnow()]
-                    )
-                    total += 1
-                except Exception as e:
-                    commit_sha = commit.get('sha', 'unknown')[:7]
-                    print(f"  ⚠ Skipping commit {commit_sha}: {e}")
-                    skipped += 1
-                    continue
+                commit_shas.append(commit.get('sha'))
 
-            status = f"total: {total}"
-            if skipped > 0:
-                status += f", skipped: {skipped}"
-            print(f"  ✓ Page {page}: {len(commits)} commits ({status})")
+            print(f"    ✓ Page {page}: Found {len(commits)} commits")
             page += 1
             time.sleep(0.5)
             
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 422:
-                print(f"  Reached pagination limit at page {page}")
+                print(f"    Reached pagination limit at page {page}")
                 break
-            print(f"  ⚠ HTTP error on page {page}: {e}")
+            print(f"    ⚠ HTTP error on page {page}: {e}")
             page += 1
             time.sleep(2)
             continue
         except Exception as e:
-            print(f"  ⚠ Unexpected error on page {page}: {e}")
+            print(f"    ⚠ Unexpected error on page {page}: {e}")
             page += 1
             time.sleep(2)
+            continue
+    
+    # Step 2: Fetch detailed data for each commit
+    print(f"  Step 2: Fetching detailed data for {len(commit_shas)} commits...")
+    for i, sha in enumerate(commit_shas, 1):
+        try:
+            # Fetch individual commit with full details (includes stats)
+            commit_detail = github_get(
+                f"https://api.github.com/repos/{REPO}/commits/{sha}"
+            )
+            
+            if commit_detail is None:
+                print(f"    ⚠ Skipping commit {sha[:7]}: Failed to fetch details")
+                skipped += 1
+                continue
+            
+            con.execute(
+                "INSERT INTO raw.raw_data_commits VALUES (?, ?)",
+                [json.dumps(commit_detail), datetime.utcnow()]
+            )
+            total += 1
+            
+            # Progress update every 10 commits
+            if i % 10 == 0:
+                print(f"    Progress: {i}/{len(commit_shas)} commits processed...")
+            
+            time.sleep(0.3)  # Rate limiting
+            
+        except Exception as e:
+            print(f"    ⚠ Skipping commit {sha[:7]}: {e}")
+            skipped += 1
             continue
     
     summary = f"Completed: {total} commits extracted"
     if skipped > 0:
         summary += f" ({skipped} skipped due to errors)"
-    print(summary)
+    print(f"  {summary}")
 
 def extract_issues(con):
     print("Extracting issues...")
@@ -265,9 +322,17 @@ def extract_issues(con):
     print(summary)
 
 def main():
-    print(f"Starting extraction (limited to {MAX_PAGES} pages per endpoint)...")
+    # Show usage info
+    print("=" * 60)
+    print("GitHub Data Extraction Script")
+    print("=" * 60)
+    if len(sys.argv) > 1:
+        print(f"Running with {MAX_PAGES} pages (specified via command line)")
+    else:
+        print(f"Running with {MAX_PAGES} pages (default)")
+        print("Tip: Run with 'python extraction_script.py <pages>' to specify")
     print(f"Repository: {REPO}")
-    print("-" * 60)
+    print("=" * 60)
     
     con = duckdb.connect(DB_PATH)
     init_db(con)
@@ -279,8 +344,9 @@ def main():
     extract_issues(con)
     
     con.close()
-    print("-" * 60)
+    print("=" * 60)
     print("✓ Extraction complete!")
+    print("=" * 60)
 
 if __name__ == "__main__":
     main()
