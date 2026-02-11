@@ -23,3 +23,6 @@ models:
     marts:
       +materialized: table
       +schema: marts
+    kpis:     
+      +materialized: table
+      +schema: kpis
