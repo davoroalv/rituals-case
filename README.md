@@ -66,3 +66,35 @@ Monthly PR metrics per developer tracking merge time, PR count, discussion activ
 (DO Note - I decided to use monthly here to see things on a longer-term window, compared to work and impact which could be measured more closely/granularly)
 
 Weekly open PR tracking by developer and staleness category showing count, time since last update, code size metrics (additions/deletions/total changes), and size distribution (small/medium/large) to analyze correlation between PR size and staleness.
+
+Future Development Work
+building out more dbt tests, e.g. accepted ranges for code - i.e. something greater than 500K or 1M might be obviously wrong (tbd by looking at ranges)
+
+build incremental tables using updated_at, so that new data from github is added at a daily/weekly level
+
+build partitions for more efficient querying
+
+expand this to other repositories
+
+Design Decisions (Tools)
+DuckDB - easiest database to setup, no Dockerfile required e.g. for Postgres. for this 4hr exercise, made the most sense, I thought
+
+DBT - common tool for analytics engineering
+
+Python - common tool for API calls
+
+Design Decisions (Data)
+Move data retrieved via API calls from git into raw tables, containing all raw data
+
+Move data from raw to staging tables, extracting values
+
+From Staging, move data into Marts tables:
+
+Dim Contributors - includes any user who raised an issue, made a commit, or made a PR, activity for each of these, when it exists, and the latest activity
+
+Fact Commits - includes one row per commit_sha, and data around this - the author, date and how many changes
+
+Fact Pull Requests - includes one row per PR, and data around this - author, created timestamp, updated timestamp, comment and line changes
+
+From Marts to KPI tables (KPI definitions above)
+
