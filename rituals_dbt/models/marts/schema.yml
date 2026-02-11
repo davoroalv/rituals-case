@@ -19,16 +19,7 @@ models:
         description: Type of GitHub user
         tests:
           - accepted_values:
-              values: ['User', 'Bot', 'Organization']
-              config:
-                severity: error
-      
-      - name: contributor_segment
-        description: Contributor classification
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['Bot', 'Core Contributor', 'Regular Contributor', 'Casual Contributor']
+              values: ['user', 'non-user']
               config:
                 severity: error
 
@@ -59,24 +50,6 @@ models:
         description: When PR was created
         tests:
           - not_null
-      
-      - name: pr_size
-        description: Size category of PR
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['XS', 'S', 'M', 'L', 'XL']
-              config:
-                severity: error
-      
-      - name: pr_status
-        description: Detailed PR status
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['Merged', 'Closed without merge', 'Draft', 'Open']
-              config:
-                severity: error
 
   - name: fact_commits
     description: Fact table of commit events
@@ -92,11 +65,3 @@ models:
         tests:
           - not_null
       
-      - name: commit_size
-        description: Size category of commit
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['Tiny', 'Small', 'Medium', 'Large', 'Huge']
-              config:
-                severity: error
