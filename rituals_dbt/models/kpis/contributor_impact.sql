@@ -11,7 +11,9 @@ with pr_base as (
         pr.is_merged,
         pr.additions,
         pr.deletions,
+        pr.net_changes,
         pr.total_changes,
+        pr.changed_files,
         c.author_login,
         c.user_type
     from {{ ref('fact_pull_requests') }} pr
