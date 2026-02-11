@@ -1,0 +1,79 @@
+version: 2
+
+models:
+  - name: stg_pull_requests
+    description: Parsed pull request data from GitHub API
+    columns:
+      - name: pr_id
+        description: Unique pull request ID
+        tests:
+          - unique
+          - not_null
+      
+      - name: pr_number
+        description: Pull request number
+        tests:
+          - unique
+          - not_null
+      
+      - name: pr_state
+        description: Pull request state
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['open', 'closed']
+      
+      - name: author_id
+        description: GitHub user ID of PR author
+        tests:
+          - not_null
+      
+      - name: created_at
+        description: When PR was created
+        tests:
+          - not_null
+
+  - name: stg_commits
+    description: Parsed commit data from GitHub API
+    columns:
+      - name: commit_sha
+        description: Unique commit SHA
+        tests:
+          - unique
+          - not_null
+      
+      - name: commit_author_date
+        description: When commit was authored
+        tests:
+          - not_null
+      
+      - name: commit_message
+        description: Commit message
+        tests:
+          - not_null
+
+  - name: stg_issues
+    description: Parsed issue data from GitHub API
+    columns:
+      - name: issue_id
+        description: Unique issue ID
+        tests:
+          - unique
+          - not_null
+      
+      - name: issue_number
+        description: Issue number
+        tests:
+          - unique
+          - not_null
+      
+      - name: issue_state
+        description: Issue state
+        tests:
+          - accepted_values:
+              values: ['open', 'closed']
+      
+      - name: author_id
+        description: GitHub user ID of issue author
+        tests:
+          - not_null

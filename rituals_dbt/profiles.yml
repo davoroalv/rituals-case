@@ -4,5 +4,5 @@ rituals_github:
     dev:
       type: duckdb
       path: '../data/rituals.duckdb'
-      schema: analytics
+      schema: rituals
       threads: 4
